@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:svgjs="http://svgjs.dev/svgjs" width="33" height="33"><svg width="33" height="33" viewBox="0 0 33 32.999999" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-git-branch" version="1.1" id="SvgjsSvg1084" sodipodi:docname="merge-bubble.svg" inkscape:version="1.3.2 (091e20e, 2023-11-25)" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd" xmlns="http://www.w3.org/2000/svg" xmlns:svg="http://www.w3.org/2000/svg">
+  <defs id="SvgjsDefs1083"></defs>
+  <sodipodi:namedview id="SvgjsSodipodi:namedview1082" pagecolor="#ffffff" bordercolor="#000000" borderopacity="0.25" inkscape:showpageshadow="2" inkscape:pageopacity="0.0" inkscape:pagecheckerboard="0" inkscape:deskcolor="#d1d1d1" inkscape:zoom="13.152049" inkscape:cx="26.611823" inkscape:cy="28.626718" inkscape:window-width="1728" inkscape:window-height="982" inkscape:window-x="0" inkscape:window-y="38" inkscape:window-maximized="0" inkscape:current-layer="svg2"></sodipodi:namedview>
+  <g id="SvgjsG1081" transform="translate(6.5,0.21404266)">
+    <line x1="4" y1="16.805809" x2="4" y2="25.73473" id="SvgjsLine1080" style="stroke-width:1.7252"></line>
+    <line x1="3.9884391" y1="7.8528247" x2="3.9884391" y2="16.781746" id="SvgjsLine1079" style="stroke-width:1.7252"></line>
+    <circle cx="16" cy="16.571918" r="3" id="SvgjsCircle1078"></circle>
+    <circle cx="4.1356688" cy="4" r="3" id="SvgjsCircle1077"></circle>
+    <circle cx="4" cy="28.571915" r="3" id="SvgjsCircle1076"></circle>
+    <path d="m 16,19.571917 a 9,9 0 0 1 -9,9" id="SvgjsPath1075"></path>
+    <path d="m 16.122761,12.783456 a 9,9 0 0 0 -9,-9.0000008" id="SvgjsPath1074"></path>
+  </g>
+</svg><style>@media (prefers-color-scheme: light) { :root { filter: none; } }
+@media (prefers-color-scheme: dark) { :root { filter: invert(100%); } }
+</style></svg>
