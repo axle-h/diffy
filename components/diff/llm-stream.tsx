@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Code, HStack, Progress, Stack } from '@chakra-ui/react'
-import { GenerateCommitDiffRequest, LLMContentEvent, LLMEvent, LLMProgressEvent, Schema } from '@/app/api/schema'
+import { GenerateCommitDiffRequest, LLMEvent, LLMProgressEvent, Schema } from '@/app/api/schema'
 import { Button } from '@/components/ui/button'
 import { useAppState } from '@/components/state'
 import { toaster } from '@/components/ui/toaster'
@@ -86,7 +86,7 @@ export function LLMStream() {
             </Button>
 
             {progress !== null && (
-                <Progress.Root value={progress.percentDone}>
+                <Progress.Root value={progress.percentDone} mt={4}>
                     <HStack gap="5">
                         <Progress.Label>Files</Progress.Label>
                         <Progress.Track flex="1">
@@ -99,6 +99,7 @@ export function LLMStream() {
 
             {messages.length > 0 && (
                 <Code
+                    mt={4}
                     whiteSpace="pre"
                     display="block"
                     padding={2}

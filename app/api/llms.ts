@@ -2,6 +2,7 @@ import { APIError } from 'openai'
 import { DiffRequest, LLMEvent } from '@/app/api/schema'
 import { clearInterval } from 'node:timers'
 import { OpenAILLM } from '@/app/api/openai'
+import { GeminiLLM } from '@/app/api/gemini'
 
 const GENERATE_COMMIT_BODY = `
 The response will be passed to git commit and should be formatted EXACTLY:
@@ -132,15 +133,26 @@ class LLMEventByteSource implements UnderlyingByteSource {
     }
 }
 
+function configuredLLMClient(): LLMClient {
+    switch (process.env.LLM_SERVICE) {
+        case 'gemini':
+            return GeminiLLM.fromEnv()
+        default:
+            return OpenAILLM.local
+    }
+}
+
+export type LLMMode = 'single-shot-sm' | 'single-shot-lg' | 'summary-first'
+
 export class LLMDiffs {
-    static readonly instance = new LLMDiffs(OpenAILLM.local, 'summary-first')
+    static readonly instance = new LLMDiffs(
+        configuredLLMClient(),
+        (process.env.LLM_MODE as LLMMode) || 'summary-first'
+    )
 
     constructor(
         private readonly client: LLMClient,
-        private readonly mode:
-            | 'single-shot-sm'
-            | 'single-shot-lg'
-            | 'summary-first'
+        private readonly mode: LLMMode
     ) {}
 
     private readonly subjects: Record<string, LLMEventSubject> = {}
@@ -171,6 +183,8 @@ export class LLMDiffs {
             case 'summary-first':
                 this.newSummaryFirstDiff(request, subject)
                 break
+            default:
+                throw new Error(`Unsupported mode ${this.mode}`)
         }
         return subject
     }
