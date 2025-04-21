@@ -1,8 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Code, Stack } from '@chakra-ui/react'
-import { LLMContentEvent } from '@/app/api/diff/llm-diff'
+import { Code, HStack, Progress, Stack } from '@chakra-ui/react'
+import { LLMContentEvent, LLMProgressEvent } from '@/app/api/llm-diff'
 import { GenerateCommitDiffRequest, Schema } from '@/app/api/schema'
 import { Button } from '@/components/ui/button'
 import { useAppState } from '@/components/state'
@@ -11,6 +11,7 @@ export function LLMStream() {
     const { state, patchState } = useAppState()
     const [messages, setMessages] = useState<string[]>([])
     const [isLoading, setIsLoading] = useState(false)
+    const [progress, setProgress] = useState<LLMProgressEvent | null>(null)
 
     const owner = state.user?.login || ''
     const repository = state.repository?.name || ''
@@ -27,6 +28,10 @@ export function LLMStream() {
         setIsLoading(true)
         setMessages([])
         patchState({ currentRequest })
+        setProgress(null)
+
+        // TODO replace this with a POST and GET && have a retry, maybe hash based
+
 
         const eventSource = new EventSource(
             `/api/diff/github/${owner}/${repository}/${commitReference}`
@@ -35,25 +40,34 @@ export function LLMStream() {
         function close() {
             patchState({ currentRequest: undefined })
             setIsLoading(false)
+            setProgress(null)
             eventSource.close()
         }
 
         eventSource.addEventListener('content', (event) => {
-            const { content, done } = JSON.parse(event.data) as LLMContentEvent
+            const { content } = JSON.parse(event.data) as LLMContentEvent
             if (content) {
                 setMessages((prev) => [...prev, content])
             }
-            if (done) {
-                close()
+        })
+
+        eventSource.addEventListener('progress', (event) => {
+            const data = JSON.parse(event.data) as LLMProgressEvent
+            if (data.totalFiles > 10) {
+                setProgress(data)
             }
+        })
+        eventSource.addEventListener('done', () => {
+            close()
+            setMessages((msgs) => [msgs.join('').trim()])
         })
 
         eventSource.onopen = () => {
             // TODO set connected
         }
 
-        eventSource.onerror = close
-        return close
+        eventSource.onerror = () => close()
+        return () => close()
     }
 
     return (
@@ -67,6 +81,18 @@ export function LLMStream() {
             >
                 Generate Diff
             </Button>
+
+            {progress !== null && (
+                <Progress.Root value={progress.percentDone}>
+                    <HStack gap="5">
+                        <Progress.Label>Files</Progress.Label>
+                        <Progress.Track flex="1">
+                            <Progress.Range />
+                        </Progress.Track>
+                        <Progress.ValueText>{progress.processedFiles} of {progress.totalFiles}</Progress.ValueText>
+                    </HStack>
+                </Progress.Root>
+            )}
 
             {messages.length > 0 && (
                 <Code

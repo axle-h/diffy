@@ -55,7 +55,7 @@ async function chatStream(
     model: string,
     context: string,
     prompt: string,
-    callback: (content: string) => void
+    controller: LLMController
 ) {
     const stream = await openai.chat.completions.create({
         model,
@@ -68,9 +68,10 @@ async function chatStream(
     for await (const part of stream) {
         const content = part.choices[0]?.delta?.content || ''
         if (content) {
-            callback(content)
+            controller.onContent(content)
         }
     }
+    controller.onDone()
 }
 
 function chunk<T>(array: T[], chunkSize: number): T[][] {
@@ -82,28 +83,58 @@ function chunk<T>(array: T[], chunkSize: number): T[][] {
     return chunks
 }
 
-interface DiffProgressEvent {
-    progress: number
+export interface LLMProgressEvent {
+    totalFiles: number
+    processedFiles: number
+    percentDone: number
 }
 
 export interface LLMContentEvent {
     content: string
-    done: boolean
 }
 
-export class LlmStream implements UnderlyingByteSource {
+export class LLMController {
+    private readonly encoder = new TextEncoder()
+    constructor(private readonly controller: ReadableByteStreamController) {}
+
+    onContent(content: string) {
+        const data: LLMContentEvent = { content }
+        this.send('content', data)
+    }
+
+    onProgress(totalFiles: number, processedFiles: number) {
+        const data: LLMProgressEvent = {
+            totalFiles,
+            processedFiles,
+            percentDone: Math.round((100 * processedFiles) / totalFiles),
+        }
+        this.send('progress', data)
+    }
+
+    onDone() {
+        this.send('done', {})
+    }
+
+    private send(event: 'content' | 'done' | 'progress', data: any) {
+        this.controller.enqueue(
+            this.encoder.encode(
+                `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`
+            )
+        )
+    }
+}
+
+export class LLMStream implements UnderlyingByteSource {
     type: 'bytes' = 'bytes'
-    private closed = false
+    private cancelled = false
 
     constructor(private readonly request: DiffRequest) {}
 
     start(controller: ReadableByteStreamController) {
-        this.llmStream(controller)
+        this.llmStream(new LLMController(controller))
     }
 
-    private async llmStream(controller: ReadableByteStreamController) {
-        const encoder = new TextEncoder()
-
+    private async llmStream(controller: LLMController) {
         const files = this.request.files.filter(
             (f) => !f.filename.endsWith('package-lock.json')
         )
@@ -111,48 +142,58 @@ export class LlmStream implements UnderlyingByteSource {
 
         const chunks = [fileDiffs] // one big chunk to start
         const summaryChunks = []
+        const totalFiles = fileDiffs.length
+        let doneFiles = 0
 
         // TODO send progress
-        let nextChunk = chunks.pop()
-        while (!this.closed && nextChunk) {
-            const files = nextChunk.map((cnk) => cnk.filename).join(',')
-            const diff = nextChunk.map((cnk) => cnk.diff).join('\n')
+        let currentChunk = chunks.pop()
+        while (!this.cancelled && currentChunk) {
+            const chunkFiles = currentChunk.map((cnk) => cnk.filename).join(',')
+            const chunkDiff = currentChunk.map((cnk) => cnk.diff).join('\n')
             try {
                 const chunkResult = await chat(
                     SMALL_MODEL,
                     SUMMARIZE_FILE_DIFF_CONTEXT,
-                    diff
+                    chunkDiff
                 )
-                summaryChunks.push(files + ':\n' + chunkResult)
+                summaryChunks.push(chunkFiles + ':\n' + chunkResult)
                 console.debug(
                     `remaining: ${chunks.length}, done: ${summaryChunks.length}`
                 )
+                doneFiles += currentChunk.length
+                controller.onProgress(totalFiles, doneFiles)
             } catch (e) {
                 if (
                     e instanceof APIError &&
                     e.status === 400 &&
                     e.message.toLowerCase().includes('context length')
                 ) {
-                    if (nextChunk.length > 1) {
-                        console.debug(`context too long, re-chunking ${files}`)
+                    if (currentChunk.length > 1) {
+                        console.debug(
+                            `context too long, re-chunking ${chunkFiles}`
+                        )
                         // split the chunk in half and requeue it
                         const smallerChunks = chunk(
-                            nextChunk,
-                            Math.ceil(nextChunk.length / 2)
+                            currentChunk,
+                            Math.ceil(currentChunk.length / 2)
                         )
                         chunks.push(...smallerChunks)
                     } else {
-                        console.debug(`file diff too long ${files}`)
+                        console.debug(`file diff too long ${chunkFiles}`)
+                        doneFiles += currentChunk.length
+                        controller.onProgress(totalFiles, doneFiles)
                     }
                 } else {
+                    // TODO ignore file?
                     throw e
                 }
             }
 
-            nextChunk = chunks.pop()
+            currentChunk = chunks.pop()
         }
 
-        if (this.closed) {
+        if (this.cancelled) {
+            controller.onDone()
             return
         }
 
@@ -160,25 +201,11 @@ export class LlmStream implements UnderlyingByteSource {
             BIG_MODEL,
             GENERATE_COMMIT_FROM_SUMMARY_CONTEXT,
             summaryChunks.join('\n'),
-            (content) => {
-                const event: LLMContentEvent = { content, done: false }
-                controller.enqueue(
-                    encoder.encode(
-                        `event: content\ndata: ${JSON.stringify(event)}\n\n`
-                    )
-                )
-            }
-        )
-
-        // TODO end event should be another type
-        controller.enqueue(
-            encoder.encode(
-                `event: content\ndata: ${JSON.stringify({ content: '', done: true })}\n\n`
-            )
+            controller
         )
     }
 
     cancel(reason: any) {
-        closed = true
+        this.cancelled = true
     }
 }
