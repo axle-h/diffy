@@ -12,7 +12,7 @@ const rubik = Rubik({
 
 export const metadata: Metadata = {
     title: 'diffy',
-    description: 'Generate diffs with LLMs from public Github',
+    description: 'LLM generated diffs from public Github',
 }
 
 export default function RootLayout({
