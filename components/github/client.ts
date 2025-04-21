@@ -1,100 +1,65 @@
 import { Octokit } from 'octokit'
-import useSWRImmutable from 'swr/immutable'
-import { useAppState } from '@/components/state'
+import { GenerateCommitDiffRequest } from '@/app/api/schema'
 
-export const octokit = new Octokit()
+class GithubClient {
+    private readonly octokit = new Octokit()
 
-async function getUserOrNull(username: string) {
-    try {
-        const { data } = await octokit.rest.users.getByUsername({ username })
-        return data
-    } catch (e) {
-        return null
+    async getUserOrNull(username: string) {
+        try {
+            const { data } = await this.octokit.rest.users.getByUsername({
+                username,
+            })
+            return data
+        } catch (e) {
+            return null
+        }
+    }
+
+    async listUserRepositories(username: string) {
+        try {
+            const { data } = await this.octokit.rest.repos.listForUser({
+                username,
+            })
+            return data
+        } catch (e) {
+            return []
+        }
+    }
+
+    async listCommits(owner: string, repo: string) {
+        try {
+            const { data } = await this.octokit.rest.repos.listCommits({
+                owner,
+                repo,
+                per_page: 100,
+            })
+            return data
+        } catch (e) {
+            return []
+        }
+    }
+
+    async getCommitFiles({ owner, repository, commitReference }: GenerateCommitDiffRequest): Promise<GithubFile[]> {
+        try {
+            const { data } = await this.octokit.rest.repos.getCommit({
+                owner,
+                repo: repository,
+                ref: commitReference,
+            })
+            return data.files || []
+        } catch (e) {
+            return []
+        }
     }
 }
 
-export type GithubUser = Exclude<
-    Awaited<ReturnType<typeof getUserOrNull>>,
-    null
+export const githubClient = new GithubClient()
+
+type GithubReturnType<F extends keyof GithubClient> = Awaited<
+    ReturnType<GithubClient[F]>
 >
 
-export function useGithubUser(queryUsername: string | null) {
-    const username = queryUsername?.trim() || ''
-    return useSWRImmutable(username ? `GET /users/${username}` : null, () =>
-        getUserOrNull(username)
-    )
-}
-
-async function listUserRepositories(username: string) {
-    try {
-        const { data } = await octokit.rest.repos.listForUser({ username })
-        return data
-    } catch (e) {
-        return []
-    }
-}
-
-export type GithubRepository = Awaited<
-    ReturnType<typeof listUserRepositories>
->[0]
-
-export function useCurrentUserRepositories() {
-    const { state } = useAppState()
-    const username = state.user?.login
-    return useSWRImmutable(
-        username ? `GET /users/${username}/repos` : null,
-        () => listUserRepositories(username || '')
-    )
-}
-
-async function listCommits(owner: string, repo: string) {
-    try {
-        const { data } = await octokit.rest.repos.listCommits({
-            owner,
-            repo,
-            per_page: 100,
-        })
-        return data
-    } catch (e) {
-        return []
-    }
-}
-
-export type GithubCommit = Awaited<ReturnType<typeof listCommits>>[0]
-
-export function useCurrentRepositoryCommits() {
-    const { state } = useAppState()
-    const owner = state.user?.login
-    const repo = state.repository?.name
-    return useSWRImmutable(
-        owner && repo ? `GET /users/${owner}/${repo}/commits` : null,
-        () => listCommits(owner || '', repo || '')
-    )
-}
-
+export type GithubUser = Exclude<GithubReturnType<'getUserOrNull'>, null>
+export type GithubRepository = GithubReturnType<'listUserRepositories'>[0]
+export type GithubCommit = GithubReturnType<'listCommits'>[0]
 export type GithubFile = Exclude<GithubCommit['files'], undefined>[0]
-async function getCommitFiles(owner: string, repo: string, ref: string) {
-    try {
-        const { data } = await octokit.rest.repos.getCommit({
-            owner,
-            repo,
-            ref,
-        })
-        return data.files || []
-    } catch (e) {
-        return []
-    }
-}
-
-export function useCurrentCommitFiles() {
-    const { state } = useAppState()
-    const owner = state.user?.login
-    const repo = state.repository?.name
-    const ref = state.commit?.sha
-    return useSWRImmutable(
-        owner && repo && ref
-            ? `GET /users/${owner}/${repo}/commits/${ref}`
-            : null,
-        () => getCommitFiles(owner || '', repo || '', ref || '')
-    )
-}

@@ -4,6 +4,7 @@ import {
     GithubRepository,
     GithubUser,
 } from '@/components/github/client'
+import { GenerateCommitDiffRequest } from '@/app/api/schema'
 
 const STATE_KEY = '/app/state'
 
@@ -11,6 +12,7 @@ export interface State {
     user?: GithubUser
     repository?: GithubRepository
     commit?: GithubCommit
+    currentRequest?: GenerateCommitDiffRequest
 }
 
 export function useAppState(): {

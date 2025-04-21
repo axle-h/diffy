@@ -7,7 +7,7 @@ import { useEffect } from 'react'
 import { SelectGithubRepository } from '@/components/github/select-github-repository'
 import { Steps } from '@chakra-ui/react'
 import { SelectGithubCommit } from '@/components/github/select-github-commit'
-import { SubmitGithubDiff } from '@/components/github/submit-github-diff'
+import { LLMStream } from '@/components/diff/llm-stream'
 
 export function GenerateGithubDiffForm() {
     return (
@@ -16,7 +16,7 @@ export function GenerateGithubDiffForm() {
             <SelectGithubUser />
             <SelectGithubRepository />
             <SelectGithubCommit />
-            <SubmitGithubDiff />
+            <LLMStream />
         </Stack>
     )
 }

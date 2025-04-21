@@ -2,10 +2,10 @@
 
 import { Input, InputGroup, Spinner, Field } from '@chakra-ui/react'
 import useDebounce from '@/components/debounce'
-import { useGithubUser } from '@/components/github/client'
 import { useEffect, useState } from 'react'
 import { CheckCircleIcon } from '@/components/icons'
 import { useAppState } from '@/components/state'
+import { useGithubUser } from '@/components/github/hooks'
 
 export function SelectGithubUser() {
     const { state, patchState } = useAppState()
@@ -13,12 +13,20 @@ export function SelectGithubUser() {
     const { data: user, isLoading } = useGithubUser(username)
     useEffect(() => {
         if (user) {
-            patchState({ user })
-        } else {
+            if (!state.user || user.login !== state.user.login) {
+                patchState({
+                    user,
+                    repository: undefined,
+                    commit: undefined,
+                    currentRequest: undefined,
+                })
+            }
+        } else if (state.user) {
             patchState({
                 user: undefined,
                 repository: undefined,
                 commit: undefined,
+                currentRequest: undefined,
             })
         }
     }, [user, patchState])
@@ -37,6 +45,7 @@ export function SelectGithubUser() {
                 <Input
                     placeholder="Github user"
                     variant="outline"
+                    disabled={!!state.currentRequest}
                     onChange={(e) => debouncedUpdate(e.target.value)}
                 />
             </InputGroup>

@@ -1,8 +1,8 @@
 'use client'
 
 import { useAppState } from '@/components/state'
-import { useCurrentRepositoryCommits } from '@/components/github/client'
 import { NativeSelect, Spinner } from '@chakra-ui/react'
+import { useCurrentRepositoryCommits } from '@/components/github/hooks'
 
 export function SelectGithubCommit() {
     const { state, patchState } = useAppState()
@@ -13,15 +13,17 @@ export function SelectGithubCommit() {
             ? commits?.find((r) => r.sha === selected)
             : null
         if (commit) {
-            patchState({ commit })
-        } else if (!!state.commit) {
-            patchState({ commit: undefined })
+            if (!state.commit || commit.sha !== state.commit.sha) {
+                patchState({ commit, currentRequest: undefined })
+            }
+        } else if (state.commit) {
+            patchState({ commit: undefined, currentRequest: undefined })
         }
     }
 
     return (
         <NativeSelect.Root
-            disabled={!commits || isLoading || commits.length === 0}
+            disabled={!!state.currentRequest || !commits || isLoading || commits.length === 0}
         >
             <NativeSelect.Field
                 placeholder="Select commit"

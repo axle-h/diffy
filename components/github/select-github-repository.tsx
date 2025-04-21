@@ -2,7 +2,8 @@
 
 import { NativeSelect, Spinner } from '@chakra-ui/react'
 import { useAppState } from '@/components/state'
-import { useCurrentUserRepositories } from '@/components/github/client'
+
+import { useCurrentUserRepositories } from '@/components/github/hooks'
 
 export function SelectGithubRepository() {
     const { state, patchState } = useAppState()
@@ -13,15 +14,17 @@ export function SelectGithubRepository() {
             ? repositories?.find((r) => r.name === selected)
             : null
         if (repository) {
-            patchState({ repository })
-        } else if (!!state.repository) {
-            patchState({ repository: undefined, commit: undefined })
+            if (!state.repository || repository.name !== state.repository.name) {
+                patchState({ repository, commit: undefined, currentRequest: undefined })
+            }
+        } else if (state.repository) {
+            patchState({ repository: undefined, commit: undefined, currentRequest: undefined })
         }
     }
 
     return (
         <NativeSelect.Root
-            disabled={!repositories || isLoading || repositories.length === 0}
+            disabled={!!state.currentRequest || !repositories || isLoading || repositories.length === 0}
         >
             <NativeSelect.Field
                 placeholder="Select repository"
