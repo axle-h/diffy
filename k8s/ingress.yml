@@ -10,7 +10,7 @@ metadata:
     app: diffy
 spec:
   rules:
-    - host: "money.ax-h.com"
+    - host: "diffy.ax-h.com"
       http:
         paths:
           - path: "/"
