@@ -5,11 +5,11 @@ import {
     Flex,
     FlexProps,
     HStack,
-    IconButton,
+    IconButton, Link,
     Text,
 } from '@chakra-ui/react'
 import { useColorMode } from '@/components/ui/color-mode'
-import {DiffyIcon, DiffyIcon2, MoonIcon, SunIcon} from '@/components/icons'
+import { DiffyIcon, GithubIcon, MoonIcon, SunIcon } from '@/components/icons'
 
 export function MobileNav(props: FlexProps) {
     const { colorMode, toggleColorMode } = useColorMode()
@@ -35,11 +35,12 @@ export function MobileNav(props: FlexProps) {
             </Flex>
 
             <HStack gap={{ base: '1', md: '3' }}>
-                <IconButton
-                    onClick={toggleColorMode}
-                    variant="ghost"
-                    aria-label="change colour mode"
-                >
+                <IconButton variant="ghost" asChild>
+                    <a href="https://github.com/axle-h/diffy" target="_blank">
+                        <GithubIcon />
+                    </a>
+                </IconButton>
+                <IconButton onClick={toggleColorMode} variant="ghost">
                     {colorMode === 'light' ? <MoonIcon /> : <SunIcon />}
                 </IconButton>
             </HStack>
