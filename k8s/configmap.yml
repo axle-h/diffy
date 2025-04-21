@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: diffy
+data:
+  GEMINI_API_KEY: "{your gemini api key}"
+  LLM_SERVICE: "gemini"
+  LLM_MODE: "single-shot-lg"

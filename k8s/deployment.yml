@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: diffy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: diffy
+  template:
+    metadata:
+      labels:
+        app: diffy
+    spec:
+      containers:
+        - name: diffy
+          image: ghcr.io/axle-h/diffy:latest
+          imagePullPolicy: Always
+          envFrom:
+            - configMapRef:
+                name: diffy
+          ports:
+            - name: http
+              containerPort: 3000
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
