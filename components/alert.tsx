@@ -1,11 +1,6 @@
 'use client'
 
-import {
-    Alert,
-    Box,
-    Center,
-    Spinner,
-} from '@chakra-ui/react'
+import { Alert, Box, Center, Spinner } from '@chakra-ui/react'
 import React, { useEffect } from 'react'
 
 type AlertProps = Alert.RootProps

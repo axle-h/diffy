@@ -14,17 +14,33 @@ export function SelectGithubRepository() {
             ? repositories?.find((r) => r.name === selected)
             : null
         if (repository) {
-            if (!state.repository || repository.name !== state.repository.name) {
-                patchState({ repository, commit: undefined, currentRequest: undefined })
+            if (
+                !state.repository ||
+                repository.name !== state.repository.name
+            ) {
+                patchState({
+                    repository,
+                    commit: undefined,
+                    currentRequest: undefined,
+                })
             }
         } else if (state.repository) {
-            patchState({ repository: undefined, commit: undefined, currentRequest: undefined })
+            patchState({
+                repository: undefined,
+                commit: undefined,
+                currentRequest: undefined,
+            })
         }
     }
 
     return (
         <NativeSelect.Root
-            disabled={!!state.currentRequest || !repositories || isLoading || repositories.length === 0}
+            disabled={
+                !!state.currentRequest ||
+                !repositories ||
+                isLoading ||
+                repositories.length === 0
+            }
         >
             <NativeSelect.Field
                 placeholder="Select repository"

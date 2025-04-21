@@ -39,7 +39,11 @@ class GithubClient {
         }
     }
 
-    async getCommitFiles({ owner, repository, commitReference }: GenerateCommitDiffRequest): Promise<GithubFile[]> {
+    async getCommitFiles({
+        owner,
+        repository,
+        commitReference,
+    }: GenerateCommitDiffRequest): Promise<GithubFile[]> {
         try {
             const { data } = await this.octokit.rest.repos.getCommit({
                 owner,

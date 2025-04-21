@@ -23,7 +23,12 @@ export function SelectGithubCommit() {
 
     return (
         <NativeSelect.Root
-            disabled={!!state.currentRequest || !commits || isLoading || commits.length === 0}
+            disabled={
+                !!state.currentRequest ||
+                !commits ||
+                isLoading ||
+                commits.length === 0
+            }
         >
             <NativeSelect.Field
                 placeholder="Select commit"

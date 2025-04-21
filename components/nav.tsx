@@ -5,7 +5,8 @@ import {
     Flex,
     FlexProps,
     HStack,
-    IconButton, Link,
+    IconButton,
+    Link,
     Text,
 } from '@chakra-ui/react'
 import { useColorMode } from '@/components/ui/color-mode'

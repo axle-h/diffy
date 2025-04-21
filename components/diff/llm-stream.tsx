@@ -2,7 +2,12 @@
 
 import { useState } from 'react'
 import { Code, HStack, Progress, Stack } from '@chakra-ui/react'
-import { GenerateCommitDiffRequest, LLMEvent, LLMProgressEvent, Schema } from '@/app/api/schema'
+import {
+    GenerateCommitDiffRequest,
+    LLMEvent,
+    LLMProgressEvent,
+    Schema,
+} from '@/app/api/schema'
 import { Button } from '@/components/ui/button'
 import { useAppState } from '@/components/state'
 import { toaster } from '@/components/ui/toaster'
@@ -92,7 +97,9 @@ export function LLMStream() {
                         <Progress.Track flex="1">
                             <Progress.Range />
                         </Progress.Track>
-                        <Progress.ValueText>{progress.processedFiles} of {progress.totalFiles}</Progress.ValueText>
+                        <Progress.ValueText>
+                            {progress.processedFiles} of {progress.totalFiles}
+                        </Progress.ValueText>
                     </HStack>
                 </Progress.Root>
             )}

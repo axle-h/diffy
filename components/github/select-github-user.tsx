@@ -29,7 +29,7 @@ export function SelectGithubUser() {
                 currentRequest: undefined,
             })
         }
-    }, [user, patchState])
+    }, [state, user, patchState])
 
     const debouncedUpdate = useDebounce(setUsername, 1000)
 
