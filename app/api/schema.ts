@@ -12,8 +12,33 @@ export class Schema {
     })
 }
 
-export type GenerateCommitDiffRequest = z.infer<(typeof Schema)['GenerateCommitDiffRequest']>
+export type GenerateCommitDiffRequest = z.infer<
+    (typeof Schema)['GenerateCommitDiffRequest']
+>
 
 export interface DiffResult {
     message: string
 }
+
+export interface DiffRequest {
+    id: string
+    files: { filename: string; diff: string }[]
+}
+
+export interface LLMProgressEvent {
+    type: 'progress'
+    totalFiles: number
+    processedFiles: number
+    percentDone: number
+}
+
+export interface LLMContentEvent {
+    type: 'content'
+    content: string
+}
+
+export interface LLMDoneEvent {
+    type: 'done'
+}
+
+export type LLMEvent = LLMProgressEvent | LLMContentEvent | LLMDoneEvent

@@ -3,6 +3,7 @@ import { Rubik } from 'next/font/google'
 import './global.css'
 import React from 'react'
 import { Provider } from '@/components/ui/provider'
+import { Toaster } from '@/components/ui/toaster'
 
 const rubik = Rubik({
     subsets: ['latin'],
@@ -22,7 +23,10 @@ export default function RootLayout({
     return (
         <html lang="en" className={rubik.variable} suppressHydrationWarning>
             <body>
-                <Provider>{children}</Provider>
+                <Provider>
+                    <Toaster />
+                    {children}
+                </Provider>
             </body>
         </html>
     )

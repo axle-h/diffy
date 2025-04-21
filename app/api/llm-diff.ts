@@ -1,16 +1,6 @@
-import OpenAI, { APIError } from 'openai'
-
-export interface DiffRequest {
-    files: { filename: string; diff: string }[]
-}
-
-const openai = new OpenAI({
-    baseURL: 'http://localhost:1234/v1',
-    apiKey: 'not-used',
-})
-
-const BIG_MODEL = 'gemma-3-27b-it'
-const SMALL_MODEL = 'qwen2.5-7b-instruct-1m'
+import OpenAI, { APIError, ClientOptions } from 'openai'
+import { DiffRequest, LLMEvent } from '@/app/api/schema'
+import { clearInterval } from 'node:timers'
 
 const GENERATE_COMMIT_FROM_SUMMARY_CONTEXT = `
 You will receive a list of summarised file changes that you will summarize into a very short commit message.
@@ -39,39 +29,79 @@ You will receive a git patch that you will summarize to be more concise:
 * Do not mention formatting changes like adding a semi colon or changing whitespace
 `
 
-async function chat(model: string, context: string, prompt: string) {
-    const response = await openai.chat.completions.create({
-        model,
-        messages: [
-            { role: 'system', content: context },
-            { role: 'user', content: prompt },
-        ],
-    })
-
-    return response.choices[0]?.message?.content || ''
+interface ModelOptions {
+    sm: string
+    lg: string
 }
 
-async function chatStream(
-    model: string,
-    context: string,
-    prompt: string,
-    controller: LLMController
-) {
-    const stream = await openai.chat.completions.create({
-        model,
-        messages: [
-            { role: 'system', content: context },
-            { role: 'user', content: prompt },
-        ],
-        stream: true,
+type ModelSize = keyof ModelOptions
+
+interface ChatRequest {
+    model: ModelSize
+    context: string
+    prompt: string
+}
+
+interface LLMClient {
+    chat(request: ChatRequest): Promise<string>
+    chatAsync(request: ChatRequest, subject: LLMEventSubject): Promise<void>
+}
+
+class OpenAILLM implements LLMClient {
+    static readonly local = new OpenAILLM({
+        baseURL: 'http://localhost:1234/v1',
+        apiKey: 'not-used',
+        models: {
+            sm: 'qwen2.5-7b-instruct-1m',
+            lg: 'gemma-3-27b-it',
+        },
     })
-    for await (const part of stream) {
-        const content = part.choices[0]?.delta?.content || ''
-        if (content) {
-            controller.onContent(content)
-        }
+
+    private readonly client: OpenAI
+    private readonly models: ModelOptions
+
+    constructor({
+        models,
+        ...options
+    }: ClientOptions & { models: ModelOptions }) {
+        this.client = new OpenAI(options)
+        this.models = models
     }
-    controller.onDone()
+
+    async chat(request: ChatRequest): Promise<string> {
+        const response = await this.client.chat.completions.create({
+            model: this.model(request.model),
+            messages: [
+                { role: 'system', content: request.context },
+                { role: 'user', content: request.prompt },
+            ],
+        })
+
+        return response.choices[0]?.message?.content || ''
+    }
+
+    async chatAsync(request: ChatRequest, subject: LLMEventSubject): Promise<void> {
+        const stream = await this.client.chat.completions.create({
+            model: this.model(request.model),
+            messages: [
+                { role: 'system', content: request.context },
+                { role: 'user', content: request.prompt },
+            ],
+            stream: true
+        })
+
+        for await (const part of stream) {
+            const content = part.choices[0]?.delta?.content || ''
+            if (content) {
+                subject.onEvent({ type: 'content', content })
+            }
+        }
+        subject.onEvent({ type: 'done' })
+    }
+
+    private model(size: ModelSize): string {
+        return this.models[size]
+    }
 }
 
 function chunk<T>(array: T[], chunkSize: number): T[][] {
@@ -83,59 +113,107 @@ function chunk<T>(array: T[], chunkSize: number): T[][] {
     return chunks
 }
 
-export interface LLMProgressEvent {
-    totalFiles: number
-    processedFiles: number
-    percentDone: number
-}
-
-export interface LLMContentEvent {
-    content: string
-}
-
-export class LLMController {
+export class LLMEventSubject {
     private readonly encoder = new TextEncoder()
-    constructor(private readonly controller: ReadableByteStreamController) {}
+    private readonly replayCache: LLMEvent[] = []
+    private readonly controllers: ReadableByteStreamController[] = []
+    private started = false
+    created = new Date().getTime()
 
-    onContent(content: string) {
-        const data: LLMContentEvent = { content }
-        this.send('content', data)
+    toReadableStream() {
+        return new ReadableStream(new LLMEventByteSource(this))
     }
 
-    onProgress(totalFiles: number, processedFiles: number) {
-        const data: LLMProgressEvent = {
-            totalFiles,
-            processedFiles,
-            percentDone: Math.round((100 * processedFiles) / totalFiles),
+    addController(controller: ReadableByteStreamController): void {
+        for (let event of this.replayCache) {
+            const payload = this.toPayload(event)
+            controller.enqueue(payload)
         }
-        this.send('progress', data)
+        this.controllers.push(controller)
+        this.started = true
     }
 
-    onDone() {
-        this.send('done', {})
+    removeController(controller: ReadableByteStreamController): void {
+        const index = this.controllers.indexOf(controller)
+        if (index >= 0) {
+            this.controllers.splice(index, 1)
+        }
     }
 
-    private send(event: 'content' | 'done' | 'progress', data: any) {
-        this.controller.enqueue(
-            this.encoder.encode(
-                `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`
-            )
-        )
+    get isRunning() {
+        return !this.started || this.controllers.length > 0
+    }
+
+    onEvent(event: LLMEvent) {
+        this.replayCache.push(event)
+        this.enqueue(event)
+    }
+
+    private enqueue(event: LLMEvent) {
+        const payload = this.toPayload(event)
+        for (let controller of this.controllers) {
+            try {
+                controller.enqueue(payload)
+            } catch (e) {}
+        }
+    }
+
+    private toPayload(event: LLMEvent) {
+        return this.encoder.encode(`data: ${JSON.stringify(event)}\n\n`)
     }
 }
 
-export class LLMStream implements UnderlyingByteSource {
+class LLMEventByteSource implements UnderlyingByteSource {
     type: 'bytes' = 'bytes'
-    private cancelled = false
+    private stream: ReadableByteStreamController | null = null
 
-    constructor(private readonly request: DiffRequest) {}
+    constructor(private readonly controller: LLMEventSubject) {}
 
     start(controller: ReadableByteStreamController) {
-        this.llmStream(new LLMController(controller))
+        this.stream = controller
+        this.controller.addController(controller)
     }
 
-    private async llmStream(controller: LLMController) {
-        const files = this.request.files.filter(
+    cancel(reason: any) {
+        if (this.stream) {
+            this.controller.removeController(this.stream)
+            this.stream = null
+        }
+    }
+}
+
+export class LLMDiffs {
+    static readonly instance = new LLMDiffs(OpenAILLM.local)
+
+    constructor(private readonly client: LLMClient) {}
+
+    private readonly subjects: Record<string, LLMEventSubject> = {}
+
+    private readonly cleanUp = setInterval(() => {
+        const epoch = new Date().getTime() + 3600000
+        for (let id in this.subjects) {
+            if (this.subjects[id].created > epoch) {
+                delete this.subjects[id]
+            }
+        }
+    }, 60000)
+
+    add(request: DiffRequest): LLMEventSubject {
+        if (request.id in this.subjects) {
+            return this.subjects[request.id]
+        }
+        const subject = new LLMEventSubject()
+        this.subjects[request.id] = subject
+        this.newRequest(request, subject)
+        return subject
+    }
+
+    close() {
+        clearInterval(this.cleanUp)
+    }
+
+    private async newRequest(request: DiffRequest, subject: LLMEventSubject) {
+        const files = request.files.filter(
             (f) => !f.filename.endsWith('package-lock.json')
         )
         const fileDiffs = files.sort((a, b) => a.diff.length - b.diff.length)
@@ -143,25 +221,23 @@ export class LLMStream implements UnderlyingByteSource {
         const chunks = [fileDiffs] // one big chunk to start
         const summaryChunks = []
         const totalFiles = fileDiffs.length
-        let doneFiles = 0
+        let processedFiles = 0
 
-        // TODO send progress
         let currentChunk = chunks.pop()
-        while (!this.cancelled && currentChunk) {
+        while (subject.isRunning && currentChunk) {
             const chunkFiles = currentChunk.map((cnk) => cnk.filename).join(',')
             const chunkDiff = currentChunk.map((cnk) => cnk.diff).join('\n')
             try {
-                const chunkResult = await chat(
-                    SMALL_MODEL,
-                    SUMMARIZE_FILE_DIFF_CONTEXT,
-                    chunkDiff
-                )
+                const chunkResult = await this.client.chat({
+                    model: 'sm',
+                    context: SUMMARIZE_FILE_DIFF_CONTEXT,
+                    prompt: chunkDiff,
+                })
                 summaryChunks.push(chunkFiles + ':\n' + chunkResult)
                 console.debug(
                     `remaining: ${chunks.length}, done: ${summaryChunks.length}`
                 )
-                doneFiles += currentChunk.length
-                controller.onProgress(totalFiles, doneFiles)
+                processedFiles += currentChunk.length
             } catch (e) {
                 if (
                     e instanceof APIError &&
@@ -180,8 +256,7 @@ export class LLMStream implements UnderlyingByteSource {
                         chunks.push(...smallerChunks)
                     } else {
                         console.debug(`file diff too long ${chunkFiles}`)
-                        doneFiles += currentChunk.length
-                        controller.onProgress(totalFiles, doneFiles)
+                        processedFiles += currentChunk.length
                     }
                 } else {
                     // TODO ignore file?
@@ -189,23 +264,27 @@ export class LLMStream implements UnderlyingByteSource {
                 }
             }
 
+            subject.onEvent({
+                type: 'progress',
+                totalFiles,
+                processedFiles,
+                percentDone: Math.round((100 * processedFiles) / totalFiles),
+            })
+
             currentChunk = chunks.pop()
         }
 
-        if (this.cancelled) {
-            controller.onDone()
+        if (!subject.isRunning) {
             return
         }
 
-        await chatStream(
-            BIG_MODEL,
-            GENERATE_COMMIT_FROM_SUMMARY_CONTEXT,
-            summaryChunks.join('\n'),
-            controller
+        await this.client.chatAsync(
+            {
+                model: 'lg',
+                context: GENERATE_COMMIT_FROM_SUMMARY_CONTEXT,
+                prompt: summaryChunks.join('\n'),
+            },
+            subject
         )
-    }
-
-    cancel(reason: any) {
-        this.cancelled = true
     }
 }

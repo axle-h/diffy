@@ -2,10 +2,10 @@
 
 import { useState } from 'react'
 import { Code, HStack, Progress, Stack } from '@chakra-ui/react'
-import { LLMContentEvent, LLMProgressEvent } from '@/app/api/llm-diff'
-import { GenerateCommitDiffRequest, Schema } from '@/app/api/schema'
+import { GenerateCommitDiffRequest, LLMContentEvent, LLMEvent, LLMProgressEvent, Schema } from '@/app/api/schema'
 import { Button } from '@/components/ui/button'
 import { useAppState } from '@/components/state'
+import { toaster } from '@/components/ui/toaster'
 
 export function LLMStream() {
     const { state, patchState } = useAppState()
@@ -30,9 +30,6 @@ export function LLMStream() {
         patchState({ currentRequest })
         setProgress(null)
 
-        // TODO replace this with a POST and GET && have a retry, maybe hash based
-
-
         const eventSource = new EventSource(
             `/api/diff/github/${owner}/${repository}/${commitReference}`
         )
@@ -44,29 +41,35 @@ export function LLMStream() {
             eventSource.close()
         }
 
-        eventSource.addEventListener('content', (event) => {
-            const { content } = JSON.parse(event.data) as LLMContentEvent
-            if (content) {
-                setMessages((prev) => [...prev, content])
+        eventSource.onmessage = (messageEvent) => {
+            const event = JSON.parse(messageEvent.data) as LLMEvent
+            switch (event.type) {
+                case 'content':
+                    if (event.content) {
+                        setMessages((prev) => [...prev, event.content])
+                    }
+                    break
+                case 'progress':
+                    if (event.totalFiles > 10) {
+                        setProgress(event)
+                    }
+                    break
+                case 'done':
+                    setMessages((msgs) => [msgs.join('').trim()])
+                    close()
+                    break
             }
-        })
-
-        eventSource.addEventListener('progress', (event) => {
-            const data = JSON.parse(event.data) as LLMProgressEvent
-            if (data.totalFiles > 10) {
-                setProgress(data)
-            }
-        })
-        eventSource.addEventListener('done', () => {
-            close()
-            setMessages((msgs) => [msgs.join('').trim()])
-        })
-
-        eventSource.onopen = () => {
-            // TODO set connected
         }
 
-        eventSource.onerror = () => close()
+        eventSource.onerror = (event) => {
+            console.error(event)
+            toaster.error({
+                title: 'Error',
+                description: 'Something went wrong',
+                duration: 3000,
+            })
+            close()
+        }
         return () => close()
     }
 

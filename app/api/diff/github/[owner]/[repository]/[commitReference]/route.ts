@@ -1,4 +1,4 @@
-import { LLMStream } from '@/app/api/llm-diff'
+import { LLMDiffs } from '@/app/api/llm-diff'
 import { GenerateCommitDiffRequest, Schema } from '@/app/api/schema'
 import { githubClient } from '@/components/github/client'
 import { handleServerError } from '@/app/api/api-error'
@@ -21,9 +21,10 @@ export async function GET(
                 diff: f.patch || '',
             }))
             .filter((f) => !!f.diff)
-        const stream = new ReadableStream(new LLMStream({ files }))
+        const { owner, repository, commitReference } = generateDiffRequest
+        const id = `/${owner}/${repository}/${commitReference}`
+        const stream = LLMDiffs.instance.add({ id, files }).toReadableStream()
         return new Response(stream, {
-            // Set the headers for Server-Sent Events (SSE)
             headers: {
                 Connection: 'keep-alive',
                 'Content-Encoding': 'none',
