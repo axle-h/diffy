@@ -1,4 +1,4 @@
-import { LLMDiffs } from '@/app/api/llm-diff'
+import { LLMDiffs } from '@/app/api/llms'
 import { GenerateCommitDiffRequest, Schema } from '@/app/api/schema'
 import { githubClient } from '@/components/github/client'
 import { handleServerError } from '@/app/api/api-error'

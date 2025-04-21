@@ -1,11 +1,10 @@
-import OpenAI, { APIError, ClientOptions } from 'openai'
+import { APIError } from 'openai'
 import { DiffRequest, LLMEvent } from '@/app/api/schema'
 import { clearInterval } from 'node:timers'
+import { OpenAILLM } from '@/app/api/openai'
 
-const GENERATE_COMMIT_FROM_SUMMARY_CONTEXT = `
-You will receive a list of summarised file changes that you will summarize into a very short commit message.
+const GENERATE_COMMIT_BODY = `
 The response will be passed to git commit and should be formatted EXACTLY:
-
 A single line summary of the entire change
 * Change 1
 * Change 2 etc
@@ -20,6 +19,14 @@ A single line summary of the entire change
 * If there are none or very little changes then output the smallest message
 `
 
+const GENERATE_COMMIT_FROM_SUMMARY_CONTEXT =
+    'You will receive a list of summarised file changes that you will summarize into a very short commit message.' +
+    GENERATE_COMMIT_BODY
+
+const GENERATE_COMMIT_FROM_DIFF_CONTEXT =
+    'You will receive set of titled git patches that you will summarize into a very short commit message.' +
+    GENERATE_COMMIT_BODY
+
 const SUMMARIZE_FILE_DIFF_CONTEXT = `
 You will receive a git patch that you will summarize to be more concise:
 * List changes as concise bullet points
@@ -29,79 +36,22 @@ You will receive a git patch that you will summarize to be more concise:
 * Do not mention formatting changes like adding a semi colon or changing whitespace
 `
 
-interface ModelOptions {
+export interface ModelOptions {
     sm: string
     lg: string
 }
 
-type ModelSize = keyof ModelOptions
+export type ModelSize = keyof ModelOptions
 
-interface ChatRequest {
+export interface ChatRequest {
     model: ModelSize
     context: string
     prompt: string
 }
 
-interface LLMClient {
+export interface LLMClient {
     chat(request: ChatRequest): Promise<string>
     chatAsync(request: ChatRequest, subject: LLMEventSubject): Promise<void>
-}
-
-class OpenAILLM implements LLMClient {
-    static readonly local = new OpenAILLM({
-        baseURL: 'http://localhost:1234/v1',
-        apiKey: 'not-used',
-        models: {
-            sm: 'qwen2.5-7b-instruct-1m',
-            lg: 'gemma-3-27b-it',
-        },
-    })
-
-    private readonly client: OpenAI
-    private readonly models: ModelOptions
-
-    constructor({
-        models,
-        ...options
-    }: ClientOptions & { models: ModelOptions }) {
-        this.client = new OpenAI(options)
-        this.models = models
-    }
-
-    async chat(request: ChatRequest): Promise<string> {
-        const response = await this.client.chat.completions.create({
-            model: this.model(request.model),
-            messages: [
-                { role: 'system', content: request.context },
-                { role: 'user', content: request.prompt },
-            ],
-        })
-
-        return response.choices[0]?.message?.content || ''
-    }
-
-    async chatAsync(request: ChatRequest, subject: LLMEventSubject): Promise<void> {
-        const stream = await this.client.chat.completions.create({
-            model: this.model(request.model),
-            messages: [
-                { role: 'system', content: request.context },
-                { role: 'user', content: request.prompt },
-            ],
-            stream: true
-        })
-
-        for await (const part of stream) {
-            const content = part.choices[0]?.delta?.content || ''
-            if (content) {
-                subject.onEvent({ type: 'content', content })
-            }
-        }
-        subject.onEvent({ type: 'done' })
-    }
-
-    private model(size: ModelSize): string {
-        return this.models[size]
-    }
 }
 
 function chunk<T>(array: T[], chunkSize: number): T[][] {
@@ -183,9 +133,15 @@ class LLMEventByteSource implements UnderlyingByteSource {
 }
 
 export class LLMDiffs {
-    static readonly instance = new LLMDiffs(OpenAILLM.local)
+    static readonly instance = new LLMDiffs(OpenAILLM.local, 'summary-first')
 
-    constructor(private readonly client: LLMClient) {}
+    constructor(
+        private readonly client: LLMClient,
+        private readonly mode:
+            | 'single-shot-sm'
+            | 'single-shot-lg'
+            | 'summary-first'
+    ) {}
 
     private readonly subjects: Record<string, LLMEventSubject> = {}
 
@@ -204,7 +160,18 @@ export class LLMDiffs {
         }
         const subject = new LLMEventSubject()
         this.subjects[request.id] = subject
-        this.newRequest(request, subject)
+
+        switch (this.mode) {
+            case 'single-shot-sm':
+                this.newSingleShotDiff(request, subject, 'sm')
+                break
+            case 'single-shot-lg':
+                this.newSingleShotDiff(request, subject, 'lg')
+                break
+            case 'summary-first':
+                this.newSummaryFirstDiff(request, subject)
+                break
+        }
         return subject
     }
 
@@ -212,10 +179,36 @@ export class LLMDiffs {
         clearInterval(this.cleanUp)
     }
 
-    private async newRequest(request: DiffRequest, subject: LLMEventSubject) {
-        const files = request.files.filter(
+    private files(request: DiffRequest) {
+        return request.files.filter(
             (f) => !f.filename.endsWith('package-lock.json')
         )
+    }
+
+    private async newSingleShotDiff(
+        request: DiffRequest,
+        subject: LLMEventSubject,
+        model: ModelSize
+    ) {
+        const diff = this.files(request)
+            .map(({ filename, diff }) => `# ${filename}\n${diff}`)
+            .join('\n\n')
+
+        await this.client.chatAsync(
+            {
+                model,
+                context: GENERATE_COMMIT_FROM_DIFF_CONTEXT,
+                prompt: diff,
+            },
+            subject
+        )
+    }
+
+    private async newSummaryFirstDiff(
+        request: DiffRequest,
+        subject: LLMEventSubject
+    ) {
+        const files = this.files(request)
         const fileDiffs = files.sort((a, b) => a.diff.length - b.diff.length)
 
         const chunks = [fileDiffs] // one big chunk to start
