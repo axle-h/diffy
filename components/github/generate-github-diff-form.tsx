@@ -43,7 +43,12 @@ function Stepper() {
     }, [steps, state])
 
     return (
-        <Steps.RootProvider value={steps} variant="solid" marginBottom={4}>
+        <Steps.RootProvider
+            value={steps}
+            variant="solid"
+            marginBottom={4}
+            display={{ base: 'none', sm: 'initial' }}
+        >
             <Steps.List>
                 {STEP_NAMES.map((step, index) => (
                     <Steps.Item key={step} index={index} title={step}>

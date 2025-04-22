@@ -147,7 +147,7 @@ export type LLMMode = 'single-shot-sm' | 'single-shot-lg' | 'summary-first'
 export class LLMDiffs {
     static readonly instance = new LLMDiffs(
         configuredLLMClient(),
-        (process.env.LLM_MODE as LLMMode) || 'summary-first'
+        (process.env.LLM_MODE as LLMMode) || 'single-shot-sm'
     )
 
     constructor(
