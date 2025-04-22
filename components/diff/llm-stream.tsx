@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Code, HStack, Progress, Stack } from '@chakra-ui/react'
+import { Code, Collapsible, HStack, Progress, Stack } from '@chakra-ui/react'
 import { LLMEvent, LLMProgressEvent, toDiffUri, Schema } from '@/app/api/schema'
 import { Button } from '@/components/ui/button'
 import { toDiffRequest, useAppState } from '@/components/state'
@@ -23,34 +23,39 @@ export function LLMStream() {
                 Generate Diff
             </Button>
 
-            {progress !== null && (
-                <Progress.Root value={progress.percentDone} mt={4}>
-                    <HStack gap="5">
-                        <Progress.Label>Files</Progress.Label>
-                        <Progress.Track flex="1">
-                            <Progress.Range />
-                        </Progress.Track>
-                        <Progress.ValueText>
-                            {progress.processedFiles} of {progress.totalFiles}
-                        </Progress.ValueText>
-                    </HStack>
-                </Progress.Root>
-            )}
+            <Collapsible.Root open={progress !== null || messages.length > 0}>
+                <Collapsible.Content>
+                    {progress !== null && (
+                        <Progress.Root value={progress.percentDone} mt={4}>
+                            <HStack gap="5">
+                                <Progress.Label>Files</Progress.Label>
+                                <Progress.Track flex="1">
+                                    <Progress.Range />
+                                </Progress.Track>
+                                <Progress.ValueText>
+                                    {progress.processedFiles} of{' '}
+                                    {progress.totalFiles}
+                                </Progress.ValueText>
+                            </HStack>
+                        </Progress.Root>
+                    )}
 
-            {messages.length > 0 && (
-                <Code
-                    mt={4}
-                    whiteSpace="pre"
-                    display="block"
-                    padding={2}
-                    rounded="md"
-                    overflow="auto"
-                    bg="gray.200"
-                    _dark={{ bg: 'gray.800' }}
-                >
-                    {messages}
-                </Code>
-            )}
+                    {messages.length > 0 && (
+                        <Code
+                            mt={4}
+                            whiteSpace="pre"
+                            display="block"
+                            padding={2}
+                            rounded="md"
+                            overflow="auto"
+                            bg="gray.200"
+                            _dark={{ bg: 'gray.800' }}
+                        >
+                            {messages}
+                        </Code>
+                    )}
+                </Collapsible.Content>
+            </Collapsible.Root>
         </Stack>
     )
 }
