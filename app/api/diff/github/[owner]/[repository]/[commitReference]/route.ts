@@ -1,5 +1,5 @@
 import { LLMDiffs } from '@/app/api/llms'
-import { GenerateCommitDiffRequest, Schema } from '@/app/api/schema'
+import { GenerateCommitDiffRequest, toDiffUri, Schema } from '@/app/api/schema'
 import { githubClient } from '@/components/github/client'
 import { handleServerError } from '@/app/api/api-error'
 
@@ -21,9 +21,8 @@ export async function GET(
                 diff: f.patch || '',
             }))
             .filter((f) => !!f.diff)
-        const { owner, repository, commitReference } = generateDiffRequest
-        const id = `/${owner}/${repository}/${commitReference}`
-        const stream = LLMDiffs.instance.add({ id, files }).toReadableStream()
+        const uri = toDiffUri(generateDiffRequest)
+        const stream = LLMDiffs.instance.add({ uri, files }).toReadableStream()
         return new Response(stream, {
             headers: {
                 Connection: 'keep-alive',

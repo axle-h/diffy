@@ -16,12 +16,16 @@ export type GenerateCommitDiffRequest = z.infer<
     (typeof Schema)['GenerateCommitDiffRequest']
 >
 
+export function toDiffUri(request: GenerateCommitDiffRequest) {
+    return `/api/diff/github/${request.owner}/${request.repository}/${request.commitReference}`
+}
+
 export interface DiffResult {
     message: string
 }
 
 export interface DiffRequest {
-    id: string
+    uri: string
     files: { filename: string; diff: string }[]
 }
 

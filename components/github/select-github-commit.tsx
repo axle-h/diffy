@@ -14,17 +14,17 @@ export function SelectGithubCommit() {
             : null
         if (commit) {
             if (!state.commit || commit.sha !== state.commit.sha) {
-                patchState({ commit, currentRequest: undefined })
+                patchState({ commit })
             }
         } else if (state.commit) {
-            patchState({ commit: undefined, currentRequest: undefined })
+            patchState({ commit: undefined })
         }
     }
 
     return (
         <NativeSelect.Root
             disabled={
-                !!state.currentRequest ||
+                state.generating ||
                 !commits ||
                 isLoading ||
                 commits.length === 0

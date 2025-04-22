@@ -167,21 +167,21 @@ export class LLMDiffs {
     }, 60000)
 
     add(request: DiffRequest): LLMEventSubject {
-        if (request.id in this.subjects) {
-            return this.subjects[request.id]
+        if (request.uri in this.subjects) {
+            return this.subjects[request.uri]
         }
         const subject = new LLMEventSubject()
-        this.subjects[request.id] = subject
+        this.subjects[request.uri] = subject
 
         switch (this.mode) {
             case 'single-shot-sm':
-                this.newSingleShotDiff(request, subject, 'sm')
+                this.newSingleShotDiff(request, subject, 'sm').then()
                 break
             case 'single-shot-lg':
-                this.newSingleShotDiff(request, subject, 'lg')
+                this.newSingleShotDiff(request, subject, 'lg').then()
                 break
             case 'summary-first':
-                this.newSummaryFirstDiff(request, subject)
+                this.newSummaryFirstDiff(request, subject).then()
                 break
             default:
                 throw new Error(`Unsupported mode ${this.mode}`)

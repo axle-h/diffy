@@ -18,7 +18,6 @@ export function SelectGithubUser() {
                     user,
                     repository: undefined,
                     commit: undefined,
-                    currentRequest: undefined,
                 })
             }
         } else if (state.user) {
@@ -26,7 +25,6 @@ export function SelectGithubUser() {
                 user: undefined,
                 repository: undefined,
                 commit: undefined,
-                currentRequest: undefined,
             })
         }
     }, [state, user, patchState])
@@ -45,7 +43,7 @@ export function SelectGithubUser() {
                 <Input
                     placeholder="Github user"
                     variant="outline"
-                    disabled={!!state.currentRequest}
+                    disabled={state.generating}
                     onChange={(e) => debouncedUpdate(e.target.value)}
                 />
             </InputGroup>

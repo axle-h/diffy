@@ -21,14 +21,12 @@ export function SelectGithubRepository() {
                 patchState({
                     repository,
                     commit: undefined,
-                    currentRequest: undefined,
                 })
             }
         } else if (state.repository) {
             patchState({
                 repository: undefined,
                 commit: undefined,
-                currentRequest: undefined,
             })
         }
     }
@@ -36,7 +34,7 @@ export function SelectGithubRepository() {
     return (
         <NativeSelect.Root
             disabled={
-                !!state.currentRequest ||
+                state.generating ||
                 !repositories ||
                 isLoading ||
                 repositories.length === 0

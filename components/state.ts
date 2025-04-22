@@ -12,7 +12,14 @@ export interface State {
     user?: GithubUser
     repository?: GithubRepository
     commit?: GithubCommit
-    currentRequest?: GenerateCommitDiffRequest
+    generating?: boolean
+}
+
+export function toDiffRequest(state: State): GenerateCommitDiffRequest {
+    const owner = state.user?.login || ''
+    const repository = state.repository?.name || ''
+    const commitReference = state.commit?.sha || ''
+    return { owner, repository, commitReference }
 }
 
 export function useAppState(): {

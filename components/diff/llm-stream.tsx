@@ -1,46 +1,42 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Code, HStack, Progress, Stack } from '@chakra-ui/react'
-import {
-    GenerateCommitDiffRequest,
-    LLMEvent,
-    LLMProgressEvent,
-    Schema,
-} from '@/app/api/schema'
+import { LLMEvent, LLMProgressEvent, toDiffUri, Schema } from '@/app/api/schema'
 import { Button } from '@/components/ui/button'
-import { useAppState } from '@/components/state'
+import { toDiffRequest, useAppState } from '@/components/state'
 import { toaster } from '@/components/ui/toaster'
 
 export function LLMStream() {
     const { state, patchState } = useAppState()
+    const [lastRequestUri, setLastRequestUri] = useState<string | null>()
     const [messages, setMessages] = useState<string[]>([])
     const [isLoading, setIsLoading] = useState(false)
     const [progress, setProgress] = useState<LLMProgressEvent | null>(null)
 
-    const owner = state.user?.login || ''
-    const repository = state.repository?.name || ''
-    const commitReference = state.commit?.sha || ''
-    const currentRequest: GenerateCommitDiffRequest = {
-        owner,
-        repository,
-        commitReference,
-    }
+    const currentRequest = toDiffRequest(state)
     const requestOk =
         Schema.GenerateCommitDiffRequest.safeParse(currentRequest).success
+    const requestUri = toDiffUri(currentRequest)
+
+    useEffect(() => {
+        if (lastRequestUri && lastRequestUri !== requestUri) {
+            setLastRequestUri(null)
+            setMessages([])
+        }
+    }, [requestUri, lastRequestUri, setLastRequestUri, setMessages])
 
     async function streamResult() {
         setIsLoading(true)
         setMessages([])
-        patchState({ currentRequest })
+        patchState({ generating: true })
+        setLastRequestUri(requestUri)
         setProgress(null)
 
-        const eventSource = new EventSource(
-            `/api/diff/github/${owner}/${repository}/${commitReference}`
-        )
+        const eventSource = new EventSource(requestUri)
 
         function close() {
-            patchState({ currentRequest: undefined })
+            patchState({ generating: false })
             setIsLoading(false)
             setProgress(null)
             eventSource.close()
