@@ -1,4 +1,10 @@
-import { FiCheckCircle, FiGithub, FiMoon, FiSun } from 'react-icons/fi'
+import {
+    FiCheckCircle,
+    FiExternalLink,
+    FiGithub,
+    FiMoon,
+    FiSun,
+} from 'react-icons/fi'
 import { Icon, IconProps } from '@chakra-ui/react'
 import { IconType } from 'react-icons'
 import React from 'react'
@@ -16,6 +22,7 @@ export const CheckCircleIcon = toChakraIcon(FiCheckCircle)
 export const SunIcon = toChakraIcon(FiSun)
 export const MoonIcon = toChakraIcon(FiMoon)
 export const GithubIcon = toChakraIcon(FiGithub)
+export const ExternalLinkIcon = toChakraIcon(FiExternalLink)
 
 export function DiffyIcon(props: IconProps) {
     return (

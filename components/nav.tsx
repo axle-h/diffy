@@ -3,6 +3,7 @@
 import { Flex, FlexProps, HStack, IconButton, Text } from '@chakra-ui/react'
 import { useColorMode } from '@/components/ui/color-mode'
 import { DiffyIcon, GithubIcon, MoonIcon, SunIcon } from '@/components/icons'
+import { Link } from '@/components/link'
 
 export function MobileNav(props: FlexProps) {
     const { colorMode, toggleColorMode } = useColorMode()
@@ -23,7 +24,9 @@ export function MobileNav(props: FlexProps) {
             <Flex flex={1} />
 
             <Flex alignItems="center">
-                <AppName />
+                <Link href="/" asChild>
+                    <Brand />
+                </Link>
             </Flex>
 
             <Flex flex={1} justifyContent="end">
@@ -45,13 +48,13 @@ export function MobileNav(props: FlexProps) {
     )
 }
 
-export function AppName() {
+export function Brand() {
     return (
-        <>
+        <Flex alignItems="center">
             <DiffyIcon size="2xl" />
-            <Text ml={-1}>
-                <b>iffy</b>
+            <Text ml={-1} fontWeight="700">
+                iffy
             </Text>
-        </>
+        </Flex>
     )
 }
